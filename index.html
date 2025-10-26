@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bo Robot 语音助手</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+      background: #f0f4ff;
+    }
+    button {
+      padding: 1em 2em;
+      font-size: 1.2em;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    span {
+      font-weight: bold;
+      color: #333;
+    }
+    #response {
+      margin-top: 1em;
+      padding: 1em;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #loading {
+      color: #888;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎙️ Bo Robot 语音助手</h1>
+  <button id="start">开始语音识别</button>
+  <p><strong>识别内容：</strong> <span id="transcript">...</span></p>
+  <div id="response"><strong>Gemini 回复：</strong> <span id="reply">...</span></div>
+  <p id="loading"></p>
+
+  <script>
+    const startBtn = document.getElementById("start");
+    const transcriptEl = document.getElementById("transcript");
+    const replyEl = document.getElementById("reply");
+    const loadingEl = document.getElementById("loading");
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "zh-CN";
+    recognition.continuous = false;
+
+    startBtn.onclick = () => {
+      replyEl.textContent = "...";
+      transcriptEl.textContent = "...";
+      loadingEl.textContent = "🎤 正在监听，请说话...";
+      recognition.start();
+    };
+
+    recognition.onresult = async (event) => {
+      const text = event.results[0][0].transcript;
+      transcriptEl.textContent = text;
+      loadingEl.textContent = "🤖 正在调用 Gemini，请稍候...";
+      try {
+        const reply = await callGemini(text);
+        replyEl.textContent = reply;
+        speak(reply);
+      } catch (err) {
+        replyEl.textContent = "❌ 出错了：" + err.message;
+      } finally {
+        loadingEl.textContent = "";
+      }
+    };
+
+    async function callGemini(prompt) {
+      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyBxIZtC6OfDX5_J32tSTa0-sd94sr1NM3g", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+      const data = await res.json();
+      if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return data.candidates[0].content.parts[0].text;
+      } else {
+        throw new Error("未返回有效内容");
+      }
+    }
+
+    function speak(text) {
+      const synth = window.speechSynthesis;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "zh-CN";
+      synth.speak(utter);
+    }
+  </script>
+</body>
+</html>
+
